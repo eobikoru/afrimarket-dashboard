@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { flattenCategories, formatUsd, labelize, qs } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
@@ -21,6 +21,7 @@ import {
   type Tag,
   type Variant,
 } from '@/lib/types';
+import { HtmlDescription, htmlValue } from './html-editor';
 import { CatalogNav, Empty, ErrorBanner, Field, Loading, Modal, PageHead, Pager, Pill, statusTone, Updating } from './ui';
 
 type Draft = {
@@ -122,6 +123,15 @@ function fromProduct(product: Product): Draft {
   };
 }
 
+function descriptionField(value: string, creating: boolean, changed: boolean): { description?: string | null } {
+  if (creating) {
+    const html = htmlValue(value);
+    return html ? { description: html } : {};
+  }
+  if (!changed) return {};
+  return { description: htmlValue(value) ?? null };
+}
+
 function intField(value: string): number | undefined {
   if (!value.trim()) return undefined;
   if (!/^\d+$/.test(value.trim())) throw new Error('Use whole numbers for cents, days, and counts');
@@ -134,7 +144,7 @@ function weightField(value: string): number | undefined {
   return Number(value.trim());
 }
 
-function payload(draft: Draft, creating: boolean) {
+function payload(draft: Draft, creating: boolean, descriptionChanged: boolean) {
   const attributes = draft.attributes.trim()
     ? (JSON.parse(draft.attributes) as Record<string, string | number | boolean>)
     : undefined;
@@ -144,7 +154,7 @@ function payload(draft: Draft, creating: boolean) {
     sku: draft.sku.trim(),
     barcode: draft.barcode.trim() || undefined,
     shortDescription: draft.shortDescription.trim() || undefined,
-    description: draft.description.trim() || undefined,
+    ...descriptionField(draft.description, creating, descriptionChanged),
     brand: draft.brand.trim() || undefined,
     countryOfOrigin: draft.countryOfOrigin.trim().toUpperCase(),
     region: draft.region,
@@ -236,10 +246,14 @@ export function ProductEditor({ id }: { id?: string }) {
   const [error, setError] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
   const [variantOpen, setVariantOpen] = useState<Variant | 'new' | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const descriptionChanged = useRef(false);
   const flat = useMemo(() => flattenCategories(categories.data ?? []), [categories.data]);
 
   useEffect(() => {
-    if (product.data) setDraft(fromProduct(product.data));
+    if (!product.data) return;
+    descriptionChanged.current = false;
+    setDraft(fromProduct(product.data));
   }, [product.data]);
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
@@ -251,12 +265,13 @@ export function ProductEditor({ id }: { id?: string }) {
     setPending(true);
     setError(null);
     try {
-      const body = payload(draft, !id);
+      const body = payload(draft, !id, descriptionChanged.current);
       if (id) {
         await api(`/admin/products/${id}`, { method: 'PATCH', body });
         product.reload();
       } else {
         const created = await api<Product>('/admin/products', { method: 'POST', body });
+        for (const file of files) await uploadProductImage(created.id, file);
         router.replace(`/products/${created.id}`);
       }
     } catch (caught) {
@@ -320,7 +335,10 @@ export function ProductEditor({ id }: { id?: string }) {
           <Field label="Net weight (oz)"><input value={draft.netWeightOz} onChange={(event) => set('netWeightOz', event.target.value)} /></Field>
           <Field label="Shelf life (days)"><input inputMode="numeric" value={draft.shelfLifeDays} onChange={(event) => set('shelfLifeDays', event.target.value)} /></Field>
           <Field label="Short description" wide><input value={draft.shortDescription} onChange={(event) => set('shortDescription', event.target.value)} maxLength={300} /></Field>
-          <Field label="Description" wide><textarea value={draft.description} onChange={(event) => set('description', event.target.value)} /></Field>
+          <div className="field span-2">
+            <span>Description</span>
+            <HtmlDescription value={draft.description} onChange={(value) => { descriptionChanged.current = true; set('description', value); }} />
+          </div>
           <Field label="Ingredients" wide><textarea value={draft.ingredients} onChange={(event) => set('ingredients', event.target.value)} /></Field>
           <Field label="Meta title"><input value={draft.metaTitle} onChange={(event) => set('metaTitle', event.target.value)} /></Field>
           <Field label="Meta description"><input value={draft.metaDescription} onChange={(event) => set('metaDescription', event.target.value)} /></Field>
@@ -349,6 +367,7 @@ export function ProductEditor({ id }: { id?: string }) {
             <label className="check" key={tag.id}><input type="checkbox" checked={draft.tagIds.includes(tag.id)} onChange={(event) => set('tagIds', event.target.checked ? [...draft.tagIds, tag.id] : draft.tagIds.filter((item) => item !== tag.id))} />{tag.name}</label>
           ))}</div>
         </fieldset>
+        {!id ? <ImageQueue files={files} onChange={setFiles} /> : null}
         <div className="actions">
           <button className="btn" disabled={pending} type="submit">{pending ? 'Saving…' : id ? 'Save product' : 'Create product'}</button>
           {id ? <button className="btn-danger" type="button" onClick={() => void remove()}>Delete</button> : null}
@@ -395,18 +414,16 @@ function Images({ productId, images, onChange }: { productId: string; images: Pr
   const [altText, setAlt] = useState('');
   const [pending, setPending] = useState(false);
 
-  async function upload(file: File) {
+  async function uploadMany(next: File[]) {
     setPending(true);
     setError(null);
     try {
-      const form = new FormData();
-      form.append('file', file);
-      if (altText.trim()) form.append('altText', altText.trim());
-      await api(`/admin/products/${productId}/images`, { method: 'POST', form });
+      for (const file of next) await uploadProductImage(productId, file, altText);
       setAlt('');
       onChange();
     } catch (caught) {
       setError(caught);
+      onChange();
     } finally {
       setPending(false);
     }
@@ -470,18 +487,123 @@ function Images({ productId, images, onChange }: { productId: string; images: Pr
           </article>
         ))}
       </div>
-      <div className="filters" style={{ marginTop: 12 }}>
-        <label className="field">Alt text<input value={altText} onChange={(event) => setAlt(event.target.value)} /></label>
-        <label className="field">Upload JPEG, PNG, or WebP
-          <input type="file" accept="image/jpeg,image/png,image/webp" disabled={pending} onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void upload(file);
-            event.target.value = '';
-          }} />
-        </label>
-      </div>
+      <label className="field" style={{ marginTop: 12 }}>Alt text<input value={altText} onChange={(event) => setAlt(event.target.value)} /></label>
+      <ImageDrop disabled={pending} onFiles={(next) => void uploadMany(next)} onReject={() => setError(new Error('Use a JPEG, PNG, WebP, or GIF'))} />
     </section>
   );
+}
+
+function uploadProductImage(productId: string, file: File, altText?: string) {
+  const form = new FormData();
+  form.append('file', file);
+  if (altText?.trim()) form.append('altText', altText.trim());
+  return api(`/admin/products/${productId}/images`, { method: 'POST', form });
+}
+
+function ImageQueue({ files, onChange }: { files: File[]; onChange: (files: File[]) => void }) {
+  const [error, setError] = useState<unknown>(null);
+  const urls = useObjectUrls(files);
+  return (
+    <div>
+      <h2>Images</h2>
+      <ErrorBanner error={error} />
+      {files.length > 0 ? (
+        <div className="gallery">
+          {files.map((file, index) => (
+            <article className="shot" key={`${file.name}-${file.size}-${index}`}>
+              <img src={urls[index]} alt="" />
+              <div>
+                <span className="note">{file.name}</span>
+                <button className="btn-ghost" type="button" onClick={() => onChange(files.filter((_, item) => item !== index))}>Remove</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+      <ImageDrop
+        onFiles={(next) => {
+          setError(null);
+          onChange([...files, ...next]);
+        }}
+        onReject={() => setError(new Error('Use a JPEG, PNG, WebP, or GIF'))}
+      />
+    </div>
+  );
+}
+
+function ImageDrop({ disabled, onFiles, onReject }: { disabled?: boolean; onFiles: (files: File[]) => void; onReject: () => void }) {
+  const [over, setOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function take(list?: FileList | null) {
+    const picked = [...(list ?? [])];
+    if (picked.length === 0) return;
+    const accepted = picked.filter(isImageFile);
+    if (accepted.length !== picked.length) onReject();
+    if (accepted.length) onFiles(accepted);
+  }
+
+  function allowDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setOver(true);
+  }
+
+  return (
+    <div
+      className={`drop${over ? ' over' : ''}`}
+      style={{ marginTop: 12 }}
+      onDragEnter={allowDrop}
+      onDragOver={allowDrop}
+      onDragLeave={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+        setOver(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setOver(false);
+        take(event.dataTransfer.files);
+      }}
+      onClick={() => fileRef.current?.click()}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          fileRef.current?.click();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Drop product images or choose files"
+    >
+      <strong>{over ? 'Drop to use these images' : 'Drag images here'}</strong>
+      <span className="note">or click to choose a JPEG, PNG, WebP, or GIF</span>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
+        disabled={disabled}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => {
+          take(event.target.files);
+          event.target.value = '';
+        }}
+      />
+    </div>
+  );
+}
+
+function isImageFile(file: File) {
+  return /image\/(jpeg|png|webp|gif)/.test(file.type) || /\.(jpe?g|png|webp|gif)$/i.test(file.name);
+}
+
+function useObjectUrls(files: File[]) {
+  const [urls, setUrls] = useState<string[]>([]);
+  useEffect(() => {
+    const next = files.map((file) => URL.createObjectURL(file));
+    setUrls(next);
+    return () => next.forEach((url) => URL.revokeObjectURL(url));
+  }, [files]);
+  return urls;
 }
 
 function VariantModal({

@@ -205,6 +205,27 @@ input:focus, select:focus, textarea:focus { border-color: var(--leaf-2); box-sha
 .drop.over { border-color: var(--leaf-2); background: rgba(33, 87, 68, 0.08); }
 .drop strong { font-weight: 560; }
 .drop input { display: none; }
+.html-field { display: grid; gap: 8px; }
+.html-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.html-tools button {
+  width: auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: white;
+  font-size: 13px;
+}
+.html-editor {
+  min-height: 180px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  outline: none;
+}
+.html-editor:focus { border-color: var(--leaf-2); box-shadow: 0 0 0 3px rgba(33, 87, 68, 0.12); }
+.html-editor h2 { font-size: 1.3rem; margin: 0.6em 0 0.3em; }
+.html-editor p, .html-editor div { margin: 0.4em 0; }
+.html-editor ul { padding-left: 1.2em; }
 .drop-preview { width: 100%; max-height: 180px; object-fit: cover; border-radius: 12px; }
 .span-2 { grid-column: span 2; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }

@@ -8,6 +8,7 @@ import { ApiError, api } from '@/lib/api';
 import { formatWhen, qs } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { BLOG_STATUSES, PER_PAGE, type BlogCategory, type BlogComment, type BlogPost, type BlogTag, type Page, type StoredImage } from '@/lib/types';
+import { HtmlDescription, htmlValue } from './html-editor';
 import { Empty, ErrorBanner, Field, Loading, PageHead, Pager, Pill, statusTone, Updating } from './ui';
 
 export function BlogListView() {
@@ -259,7 +260,7 @@ export function BlogEditor({ id }: { id?: string }) {
       title: draft.title.trim(),
       slug: draft.slug.trim() || undefined,
       excerpt: draft.excerpt.trim(),
-      bodyHtml: draft.bodyHtml,
+      bodyHtml: htmlValue(draft.bodyHtml) ?? '',
       status: draft.status,
       categoryId: draft.categoryId || null,
       tagIds: draft.tagIds,
@@ -273,6 +274,10 @@ export function BlogEditor({ id }: { id?: string }) {
 
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (!htmlValue(draft.bodyHtml)) {
+      setError(new Error('Write the post body'));
+      return;
+    }
     setPending(true);
     setError(null);
     try {
@@ -338,7 +343,10 @@ export function BlogEditor({ id }: { id?: string }) {
             </select>
           </Field>
           <Field label="Excerpt" wide><textarea value={draft.excerpt} onChange={(event) => setDraft({ ...draft, excerpt: event.target.value })} required /></Field>
-          <Field label="Body HTML" wide><textarea style={{ minHeight: 220 }} value={draft.bodyHtml} onChange={(event) => setDraft({ ...draft, bodyHtml: event.target.value })} required /></Field>
+          <div className="field span-2">
+            <span>Body</span>
+            <HtmlDescription label="Post body" value={draft.bodyHtml} onChange={(value) => setDraft({ ...draft, bodyHtml: value })} />
+          </div>
           <Field label="Meta title"><input value={draft.metaTitle} onChange={(event) => setDraft({ ...draft, metaTitle: event.target.value })} /></Field>
           <Field label="Meta description"><input value={draft.metaDescription} onChange={(event) => setDraft({ ...draft, metaDescription: event.target.value })} /></Field>
         </div>

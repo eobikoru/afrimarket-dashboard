@@ -14,7 +14,7 @@ export function CategoriesView() {
 
   return (
     <>
-      <PageHead kicker="Catalog" title="Categories" lede="Three levels deep. A category with products or children cannot be deleted.">
+      <PageHead kicker="Catalog" title="Categories" lede="Leave the parent empty for a top-level category, or choose one to add a subcategory. A category with products or children cannot be deleted.">
         <button className="btn" type="button" onClick={() => setEditing('new')}>New category</button>
       </PageHead>
       <CatalogNav current="categories" />
@@ -41,7 +41,7 @@ export function CategoriesView() {
       {editing ? (
         <CategoryModal
           category={editing === 'new' ? null : editing}
-          parents={flat.map(({ node }) => node)}
+          options={flat}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); reload(); }}
         />
@@ -52,12 +52,12 @@ export function CategoriesView() {
 
 function CategoryModal({
   category,
-  parents,
+  options,
   onClose,
   onSaved,
 }: {
   category: Category | null;
-  parents: Category[];
+  options: { node: Category; depth: number }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -66,13 +66,14 @@ function CategoryModal({
   const [description, setDescription] = useState(category?.description ?? '');
   const [parentId, setParent] = useState(category?.parentId ?? '');
   const [sortOrder, setSort] = useState(String(category?.sortOrder ?? 0));
-  const [imageUrl, setImage] = useState(category?.imageUrl ?? '');
   const [metaTitle, setMeta] = useState(category?.metaTitle ?? '');
   const [metaDescription, setMetaDescription] = useState(category?.metaDescription ?? '');
   const [isActive, setActive] = useState(category?.isActive ?? true);
   const [isFeatured, setFeatured] = useState(category?.isFeatured ?? false);
   const [error, setError] = useState<unknown>(null);
   const [pending, setPending] = useState(false);
+  const blocked = category ? branchIds(category) : new Set<string>();
+  const parentChoices = options.filter(({ node }) => node.level < 2 && !blocked.has(node.id));
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -85,7 +86,6 @@ function CategoryModal({
         description: description.trim() || undefined,
         parentId: parentId || null,
         sortOrder: Number(sortOrder || 0),
-        imageUrl: imageUrl.trim() || undefined,
         metaTitle: metaTitle.trim() || undefined,
         metaDescription: metaDescription.trim() || undefined,
         isActive,
@@ -120,14 +120,14 @@ function CategoryModal({
         <div className="form-grid">
           <Field label="Name"><input value={name} onChange={(event) => setName(event.target.value)} required /></Field>
           <Field label="Slug"><input value={slug} onChange={(event) => setSlug(event.target.value)} /></Field>
-          <Field label="Parent">
+          <Field label="Parent" wide>
             <select value={parentId} onChange={(event) => setParent(event.target.value)}>
-              <option value="">None</option>
-              {parents.filter((item) => item.id !== category?.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              <option value="">None — top-level category</option>
+              {parentChoices.map(({ node, depth }) => <option key={node.id} value={node.id}>{'— '.repeat(depth)}{node.name}</option>)}
             </select>
+            <span className="note">Leave this empty for a top-level category. A second-level category cannot be a parent.</span>
           </Field>
           <Field label="Sort order"><input inputMode="numeric" value={sortOrder} onChange={(event) => setSort(event.target.value)} /></Field>
-          <Field label="Image URL" wide><input value={imageUrl} onChange={(event) => setImage(event.target.value)} placeholder="https://" /></Field>
           <Field label="Description" wide><textarea value={description} onChange={(event) => setDescription(event.target.value)} /></Field>
           <Field label="Meta title"><input value={metaTitle} onChange={(event) => setMeta(event.target.value)} /></Field>
           <Field label="Meta description"><input value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} /></Field>
@@ -141,6 +141,12 @@ function CategoryModal({
       </form>
     </Modal>
   );
+}
+
+function branchIds(category: Category, into = new Set<string>()): Set<string> {
+  into.add(category.id);
+  for (const child of category.children ?? []) branchIds(child, into);
+  return into;
 }
 
 export function TagsView() {
