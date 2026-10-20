@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { ApiError, login } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { ErrorBanner } from './ui';
+import { ErrorBanner, PasswordField } from './ui';
 
 export function LoginView() {
   const router = useRouter();
@@ -53,10 +53,7 @@ export function LoginView() {
             Email
             <input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
           </label>
-          <label className="field">
-            Password
-            <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-          </label>
+          <PasswordField autoComplete="current-password" value={password} onChange={setPassword} required />
           <button className="btn" type="submit" disabled={pending}>{pending ? 'Signing in…' : 'Enter the desk'}</button>
           <p className="note">Staff accounts only. Shoppers sign in on the store, not here.</p>
         </form>

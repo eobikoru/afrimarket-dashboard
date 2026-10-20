@@ -162,6 +162,22 @@ tr:last-child td { border-bottom: 0; }
 .sidebar .btn-ghost { color: #fffaf3; border-color: rgba(255,255,255,0.2); }
 
 label.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-soft); min-width: 0; }
+.secret { position: relative; display: block; }
+.secret input { padding-right: 42px; }
+.eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  padding: 4px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.eye svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.eye:hover { color: var(--ink); }
 label.field.grow { flex: 1; }
 input, select, textarea {
   background: white;
@@ -174,6 +190,22 @@ input, select, textarea {
 textarea { min-height: 110px; resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: var(--leaf-2); box-shadow: 0 0 0 3px rgba(33, 87, 68, 0.12); }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.drop {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  min-height: 168px;
+  padding: 16px;
+  border: 1.5px dashed rgba(28, 25, 20, 0.28);
+  border-radius: 16px;
+  background: rgba(255, 250, 243, 0.8);
+  text-align: center;
+  cursor: pointer;
+}
+.drop.over { border-color: var(--leaf-2); background: rgba(33, 87, 68, 0.08); }
+.drop strong { font-weight: 560; }
+.drop input { display: none; }
+.drop-preview { width: 100%; max-height: 180px; object-fit: cover; border-radius: 12px; }
 .span-2 { grid-column: span 2; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .check input { width: auto; }

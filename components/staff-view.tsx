@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { formatWhen, qs } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { PER_PAGE, type Admin, type AuditLog, type Page, type Role } from '@/lib/types';
-import { Empty, ErrorBanner, Field, Loading, Modal, PageHead, Pager, Pill, Updating } from './ui';
+import { Empty, ErrorBanner, Field, Loading, Modal, PageHead, Pager, PasswordField, Pill, Updating } from './ui';
 
 const ROLES: Role[] = ['SUPER_ADMIN', 'ADMIN', 'BLOG_AUTHOR'];
 
@@ -101,7 +101,7 @@ function CreateAdmin({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
         <ErrorBanner error={error} />
         <Field label="Name"><input value={name} onChange={(event) => setName(event.target.value)} required /></Field>
         <Field label="Email"><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></Field>
-        <Field label="Password"><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} /></Field>
+        <PasswordField value={password} onChange={setPassword} required minLength={8} />
         <p className="note">At least 8 characters, with a letter and a number.</p>
         <Field label="Role">
           <select value={role} onChange={(event) => setRole(event.target.value as Role)}>{ROLES.map((item) => <option key={item}>{item}</option>)}</select>

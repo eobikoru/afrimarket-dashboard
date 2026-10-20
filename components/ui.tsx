@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 
 export function ErrorBanner({ error }: { error: unknown }) {
@@ -140,6 +141,69 @@ export function Pager({
         <button className="btn-ghost" type="button" disabled={page >= pages} onClick={() => onPage(page + 1)}>Next</button>
       </div>
     </div>
+  );
+}
+
+export function PasswordField({
+  label = 'Password',
+  value,
+  onChange,
+  autoComplete,
+  required,
+  minLength,
+}: {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete?: string;
+  required?: boolean;
+  minLength?: number;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <label className="field">
+      {label}
+      <span className="secret">
+        <input
+          type={visible ? 'text' : 'password'}
+          autoComplete={autoComplete}
+          value={value}
+          minLength={minLength}
+          required={required}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button
+          className="eye"
+          type="button"
+          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setVisible((current) => !current)}
+        >
+          {visible ? <EyeOffIcon /> : <EyeIcon />}
+        </button>
+      </span>
+    </label>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 3l18 18" />
+      <path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6.5 0 10 6 10 6a18.4 18.4 0 0 1-3.2 3.8" />
+      <path d="M6.7 6.8C3.9 8.6 2 12 2 12s3.5 6 10 6c1.5 0 2.9-.3 4.1-.9" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
   );
 }
 
