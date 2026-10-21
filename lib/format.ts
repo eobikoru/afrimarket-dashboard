@@ -14,6 +14,11 @@ export function formatBps(bps: number): string {
   return `${whole}.${String(frac).padStart(2, '0')}%`;
 }
 
+export function groupDigits(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 export function parseCents(value: string): number | null {
   const trimmed = value.trim();
   if (!/^\d{1,12}$/.test(trimmed)) return null;

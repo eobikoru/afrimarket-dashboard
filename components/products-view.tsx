@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api';
-import { flattenCategories, formatUsd, labelize, qs } from '@/lib/format';
+import { COUNTRIES } from '@/lib/countries';
+import { flattenCategories, formatUsd, groupDigits, labelize, qs } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import {
   ALLERGENS,
@@ -123,6 +124,23 @@ function fromProduct(product: Product): Draft {
   };
 }
 
+function CentsInput({ value, onChange, required }: { value: string; onChange: (value: string) => void; required?: boolean }) {
+  const digits = value.replace(/\D/g, '');
+  return (
+    <>
+      <input
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        value={groupDigits(digits)}
+        onChange={(event) => onChange(event.target.value.replace(/\D/g, ''))}
+        required={required}
+      />
+      {digits ? <span className="note">{formatUsd(Number(digits))}</span> : null}
+    </>
+  );
+}
+
 function descriptionField(value: string, creating: boolean, changed: boolean): { description?: string | null } {
   if (creating) {
     const html = htmlValue(value);
@@ -133,9 +151,10 @@ function descriptionField(value: string, creating: boolean, changed: boolean): {
 }
 
 function intField(value: string): number | undefined {
-  if (!value.trim()) return undefined;
-  if (!/^\d+$/.test(value.trim())) throw new Error('Use whole numbers for cents, days, and counts');
-  return Number(value.trim());
+  const digits = value.replace(/,/g, '').trim();
+  if (!digits) return undefined;
+  if (!/^\d+$/.test(digits)) throw new Error('Use whole numbers for cents, days, and counts');
+  return Number(digits);
 }
 
 function weightField(value: string): number | undefined {
@@ -145,9 +164,6 @@ function weightField(value: string): number | undefined {
 }
 
 function payload(draft: Draft, creating: boolean, descriptionChanged: boolean) {
-  const attributes = draft.attributes.trim()
-    ? (JSON.parse(draft.attributes) as Record<string, string | number | boolean>)
-    : undefined;
   return {
     name: draft.name.trim(),
     slug: draft.slug.trim() || undefined,
@@ -173,7 +189,6 @@ function payload(draft: Draft, creating: boolean, descriptionChanged: boolean) {
     ingredients: draft.ingredients.trim() || undefined,
     allergenFlags: draft.allergenFlags,
     dietaryTags: draft.dietaryTags,
-    attributes,
     metaTitle: draft.metaTitle.trim() || undefined,
     metaDescription: draft.metaDescription.trim() || undefined,
     categoryId: draft.categoryId,
@@ -309,7 +324,12 @@ export function ProductEditor({ id }: { id?: string }) {
           <Field label="SKU"><input value={draft.sku} onChange={(event) => set('sku', event.target.value)} required /></Field>
           <Field label="Barcode"><input value={draft.barcode} onChange={(event) => set('barcode', event.target.value)} /></Field>
           <Field label="Brand"><input value={draft.brand} onChange={(event) => set('brand', event.target.value)} /></Field>
-          <Field label="Country of origin"><input value={draft.countryOfOrigin} onChange={(event) => set('countryOfOrigin', event.target.value)} maxLength={2} placeholder="NG" required /></Field>
+          <Field label="Country of origin">
+            <select value={draft.countryOfOrigin} onChange={(event) => set('countryOfOrigin', event.target.value)} required>
+              <option value="">Choose</option>
+              {COUNTRIES.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
+            </select>
+          </Field>
           <Field label="Region">
             <select value={draft.region} onChange={(event) => set('region', event.target.value)}>{REGIONS.map((item) => <option key={item} value={item}>{labelize(item)}</option>)}</select>
           </Field>
@@ -319,9 +339,9 @@ export function ProductEditor({ id }: { id?: string }) {
               {flat.map(({ node, depth }) => <option key={node.id} value={node.id}>{'— '.repeat(depth)}{node.name}</option>)}
             </select>
           </Field>
-          <Field label="Price (cents)"><input inputMode="numeric" value={draft.priceCents} onChange={(event) => set('priceCents', event.target.value)} required />{draft.priceCents && /^\d+$/.test(draft.priceCents) ? <span className="note">{formatUsd(Number(draft.priceCents))}</span> : null}</Field>
-          <Field label="Compare-at (cents)"><input inputMode="numeric" value={draft.compareAtPriceCents} onChange={(event) => set('compareAtPriceCents', event.target.value)} /></Field>
-          <Field label="Cost (cents)"><input inputMode="numeric" value={draft.costCents} onChange={(event) => set('costCents', event.target.value)} /></Field>
+          <Field label="Price (cents)"><CentsInput value={draft.priceCents} onChange={(value) => set('priceCents', value)} required /></Field>
+          <Field label="Compare-at (cents)"><CentsInput value={draft.compareAtPriceCents} onChange={(value) => set('compareAtPriceCents', value)} /></Field>
+          <Field label="Cost (cents)"><CentsInput value={draft.costCents} onChange={(value) => set('costCents', value)} /></Field>
           <Field label="Status">
             <select value={draft.status} onChange={(event) => set('status', event.target.value)}>{PRODUCT_STATUSES.map((item) => <option key={item} value={item}>{labelize(item)}</option>)}</select>
           </Field>
@@ -342,7 +362,6 @@ export function ProductEditor({ id }: { id?: string }) {
           <Field label="Ingredients" wide><textarea value={draft.ingredients} onChange={(event) => set('ingredients', event.target.value)} /></Field>
           <Field label="Meta title"><input value={draft.metaTitle} onChange={(event) => set('metaTitle', event.target.value)} /></Field>
           <Field label="Meta description"><input value={draft.metaDescription} onChange={(event) => set('metaDescription', event.target.value)} /></Field>
-          <Field label="Attributes JSON" wide><textarea value={draft.attributes} onChange={(event) => set('attributes', event.target.value)} placeholder='{"origin":"Lagos"}' /></Field>
         </div>
         <div className="actions">
           <label className="check"><input type="checkbox" checked={draft.isActive} onChange={(event) => set('isActive', event.target.checked)} /> Active</label>
